@@ -10,16 +10,31 @@ app.use(express.json());
 // ---------------------
 // PostgreSQL connection
 // ---------------------
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false } // required for Railway
-});
+let pool;
 
+if (process.env.NODE_ENV === "production") {
+  // Production: Railway
+  pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false } // Required for Railway
+  });
+} else {
+  // Development: local Postgres
+  pool = new Pool({
+    host: process.env.DB_HOST,
+    port: Number(process.env.DB_PORT),
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME
+    // no SSL for local
+  });
+}
+
+// ---------------------
 // Debug: confirm env vars
-console.log("DB_HOST:", process.env.DB_HOST);
-console.log("DB_PORT:", process.env.DB_PORT);
-console.log("DB_USER:", process.env.DB_USER);
-console.log("DB_NAME:", process.env.DB_NAME);
+// ---------------------
+console.log("NODE_ENV:", process.env.NODE_ENV);
+console.log("Using DB config:", process.env.NODE_ENV === "production" ? "Railway" : "Local");
 
 // ---------------------
 // Ensure table exists
@@ -41,10 +56,8 @@ const init = async () => {
 init();
 
 // ---------------------
-// Endpoints
+// Endpoints (same as before)
 // ---------------------
-
-// GET all messages / health
 app.get("/health", async (req, res) => {
   try {
     const result = await pool.query("SELECT * FROM health_check ORDER BY id ASC");
@@ -55,7 +68,6 @@ app.get("/health", async (req, res) => {
   }
 });
 
-// POST a new message
 app.post("/health", async (req, res) => {
   const { message } = req.body;
   if (!message) return res.status(400).json({ error: "Message is required" });
@@ -72,7 +84,6 @@ app.post("/health", async (req, res) => {
   }
 });
 
-// DELETE a message
 app.delete("/health/:id", async (req, res) => {
   const { id } = req.params;
   try {
@@ -88,7 +99,6 @@ app.delete("/health/:id", async (req, res) => {
   }
 });
 
-// UPDATE a message
 app.put("/health/:id", async (req, res) => {
   const { id } = req.params;
   const { message } = req.body;
